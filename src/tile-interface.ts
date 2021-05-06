@@ -13,11 +13,22 @@ const sql = function(key: string) {
   return queryFiles[fn];
 };
 
+type Database = IDatabase<any>;
+
+type TileArgs = { z: number; x: number; y: number };
+
+interface TileInterface {
+  getTile(k: TileArgs & { layer_id: string }): Promise<any>;
+  layer_id: string;
+  content_type: string;
+  format: string;
+}
+
 const interfaceFactory = async function(
-  db: IDatabase<null>,
+  db: Database,
   layerName: string,
-  opts,
-  buildTile
+  opts: any,
+  buildTile: (args: TileArgs) => any
 ) {
   const { verbose = false } = opts;
   const { id: layer_id, content_type, format } = await db.one(
@@ -25,7 +36,7 @@ const interfaceFactory = async function(
     { name: layerName }
   );
 
-  const getTile = async function(tileArgs) {
+  const getTile = async function(tileArgs: TileArgs): Promise<TileInterface> {
     const { z, x, y } = tileArgs;
     const params = { ...tileArgs, layer_id };
     const res = await db.oneOrNone(sql("get-tile"), params);
@@ -43,12 +54,22 @@ const interfaceFactory = async function(
   return { getTile, content_type, format, layer_id };
 };
 
-const vectorTileInterface = function(db, layer, opts = {}) {
+const vectorTileInterface = function(
+  db: Database,
+  layerName: string,
+  opts = {}
+) {
   const q = sql("get-vector-tile");
-  return interfaceFactory(db, layer, opts, async function(tileArgs) {
+  return interfaceFactory(db, layerName, opts, async function(tileArgs) {
     const { tile } = await db.one(q, tileArgs);
     return tile;
   });
 };
 
-export { interfaceFactory, vectorTileInterface };
+export {
+  interfaceFactory,
+  vectorTileInterface,
+  TileArgs,
+  Database,
+  TileInterface
+};

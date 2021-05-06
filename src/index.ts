@@ -1,12 +1,21 @@
 import express from "express";
-import { vectorTileInterface } from "./tile-interface";
-import { IDatabase } from "pg-promise";
+import {
+  vectorTileInterface,
+  TileArgs,
+  Database,
+  TileInterface
+} from "./tile-interface";
 
-const tileLayerServer = function({ getTile, content_type, format, layer_id }) {
+const tileLayerServer = function({
+  getTile,
+  content_type,
+  format,
+  layer_id
+}: TileInterface) {
   // Small replacement for tessera
   const app = express().disable("x-powered-by");
 
-  app.get(`/:z/:x/:y.${format}`, async function(req, res, next) {
+  app.get<TileArgs>(`/:z/:x/:y.${format}`, async function(req, res, next) {
     const z = req.params.z | 0;
     const x = req.params.x | 0;
     const y = req.params.y | 0;
@@ -28,9 +37,9 @@ const tileLayerServer = function({ getTile, content_type, format, layer_id }) {
 };
 
 async function vectorTileServer(
-  db: IDatabase<any>,
+  db: Database,
   layerName: string,
-  opts = {}
+  opts: any = {}
 ) {
   const cfg = await vectorTileInterface(db, layerName, opts);
   return tileLayerServer(cfg);
