@@ -1,45 +1,37 @@
-import { readFileSync } from "fs";
+import express from "express";
+import { vectorTileInterface } from "./tile-interface";
 
-const queryFiles: { [k: string]: string } = {};
+const tileLayerServer = function({ getTile, content_type, format, layer_id }) {
+  // Small replacement for tessera
 
-const sql = function(key: string) {
-  // Don't hit the filesystem repeatedly
-  // in a session
-  const fn = require.resolve(`../procedures/${key}.sql`);
-  if (queryFiles[fn] == null) {
-    queryFiles[fn] = readFileSync(fn, "UTF-8");
-  }
-  return queryFiles[fn];
-};
+  const prefix = `/${layer_id}`;
 
-const interfaceFactory = async function(db, layerName, opts, buildTile) {
-  let { silent = false } = opts;
-  const log = silent ? function() {} : console.log;
-  const { id: layer_id, content_type, format } = await db.one(
-    sql("get-layer-metadata"),
-    { name: layerName }
-  );
-  const q = sql("get-tile");
-  const q2 = sql("set-tile");
-  const getTile = async function(tileArgs) {
-    const { z, x, y } = tileArgs;
-    let { tile } = (await db.oneOrNone(q, { ...tileArgs, layer_id })) || {};
-    if (tile == null) {
-      log(`Creating tile (${z},${x},${y}) for layer ${name}`);
-      tile = await buildTile(tileArgs);
-      db.none(q2, { z, x, y, tile, layer_id });
+  const app = express().disable("x-powered-by");
+
+  app.get(`/:z/:x/:y.${format}`, async function(req, res, next) {
+    const z = req.params.z | 0;
+    const x = req.params.x | 0;
+    const y = req.params.y | 0;
+
+    try {
+      // Ignore headers that are also set by getTile
+      const tile = await getTile({ z, x, y, layer_id });
+      if (tile == null) {
+        return res.status(404).send("Not found");
+      }
+      res.set({ "Content-Type": content_type });
+      return res.status(200).send(tile);
+    } catch (err) {
+      return next(err);
     }
-    return tile;
-  };
-  return { getTile, content_type, format, layer_id };
-};
-
-const vectorTileInterface = function(db, layer, opts = {}) {
-  const q = sql("get-vector-tile");
-  return interfaceFactory(db, layer, opts, async function(tileArgs) {
-    const { tile } = await db.one(q, tileArgs);
-    return tile;
   });
+
+  return app;
 };
 
-export { interfaceFactory, vectorTileInterface };
+async function vectorTileServer(db, layerName: string, opts) {
+  const cfg = await vectorTileInterface(db, layerName, opts);
+  return tileLayerServer(cfg);
+}
+
+export default vectorTileServer;
