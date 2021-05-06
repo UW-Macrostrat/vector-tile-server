@@ -1,4 +1,5 @@
 import { readFileSync } from "fs";
+import { IDatabase } from "pg-promise";
 
 const queryFiles: { [k: string]: string } = {};
 
@@ -12,24 +13,32 @@ const sql = function(key: string) {
   return queryFiles[fn];
 };
 
-const interfaceFactory = async function(db, layerName, opts, buildTile) {
-  let { silent = false } = opts;
-  const log = silent ? function() {} : console.log;
+const interfaceFactory = async function(
+  db: IDatabase<null>,
+  layerName: string,
+  opts,
+  buildTile
+) {
+  const { verbose = false } = opts;
   const { id: layer_id, content_type, format } = await db.one(
     sql("get-layer-metadata"),
     { name: layerName }
   );
-  const q = sql("get-tile");
-  const q2 = sql("set-tile");
+
   const getTile = async function(tileArgs) {
     const { z, x, y } = tileArgs;
-    let { tile } = (await db.oneOrNone(q, { ...tileArgs, layer_id })) || {};
-    if (tile == null) {
-      log(`Creating tile (${z},${x},${y}) for layer ${name}`);
-      tile = await buildTile(tileArgs);
-      db.none(q2, { z, x, y, tile, layer_id });
+    const params = { ...tileArgs, layer_id };
+    const res = await db.oneOrNone(sql("get-tile"), params);
+    if (res?.tile == null) {
+      if (verbose) {
+        console.log(`Creating tile (${z},${x},${y}) for layer ${name}`);
+      }
+      const newTile = await buildTile(tileArgs);
+      db.none(sql("set-tile"), { z, x, y, newTile, layer_id });
+      return newTile;
+    } else {
+      return res.tile;
     }
-    return tile;
   };
   return { getTile, content_type, format, layer_id };
 };

@@ -1,11 +1,9 @@
 import express from "express";
 import { vectorTileInterface } from "./tile-interface";
+import { IDatabase } from "pg-promise";
 
 const tileLayerServer = function({ getTile, content_type, format, layer_id }) {
   // Small replacement for tessera
-
-  const prefix = `/${layer_id}`;
-
   const app = express().disable("x-powered-by");
 
   app.get(`/:z/:x/:y.${format}`, async function(req, res, next) {
@@ -29,7 +27,11 @@ const tileLayerServer = function({ getTile, content_type, format, layer_id }) {
   return app;
 };
 
-async function vectorTileServer(db, layerName: string, opts) {
+async function vectorTileServer(
+  db: IDatabase<any>,
+  layerName: string,
+  opts = {}
+) {
   const cfg = await vectorTileInterface(db, layerName, opts);
   return tileLayerServer(cfg);
 }

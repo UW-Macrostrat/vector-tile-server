@@ -9,6 +9,8 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@types/node": "^15.0.2"
+    "@types/node": "^15.0.2",
+    "@types/pg-promise": "^5.4.3",
+    "pg-promise": "^10.10.2"
   }
 }
