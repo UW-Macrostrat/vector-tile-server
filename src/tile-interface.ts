@@ -39,16 +39,21 @@ const interfaceFactory = async function(
   const getTile = async function(tileArgs: TileArgs): Promise<TileInterface> {
     const { z, x, y } = tileArgs;
     const params = { ...tileArgs, layer_id };
-    const res = await db.oneOrNone(sql("get-tile"), params);
-    if (res?.tile == null) {
-      if (verbose) {
-        console.log(`Creating tile (${z},${x},${y}) for layer ${name}`);
+    try {
+      const res = await db.oneOrNone(sql("get-tile"), params);
+      if (res?.tile == null) {
+        if (verbose) {
+          console.log(`Creating tile (${z},${x},${y}) for layer ${name}`);
+        }
+        const newTile = await buildTile(tileArgs);
+        console.log("Built tile", newTile);
+        await db.none(sql("set-tile"), { z, x, y, tile: newTile, layer_id });
+        return newTile;
+      } else {
+        return res.tile;
       }
-      const newTile = await buildTile(tileArgs);
-      db.none(sql("set-tile"), { z, x, y, newTile, layer_id });
-      return newTile;
-    } else {
-      return res.tile;
+    } catch (err) {
+      throw err;
     }
   };
   return { getTile, content_type, format, layer_id };
