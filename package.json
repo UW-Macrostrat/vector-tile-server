@@ -10,7 +10,7 @@
   "license": "ISC",
   "devDependencies": {
     "@types/node": "^15.0.2",
-    "@types/pg-promise": "^5.4.3",
-    "pg-promise": "^10.10.2"
+    "express": "^4.17.1",
+    "pg-promise": "^11.0.0"
   }
 }
